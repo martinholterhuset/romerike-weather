@@ -1,0 +1,28 @@
+name: Romerike Værvarsel
+
+on:
+  schedule:
+    # Kjører kl. 06:00 og 15:00 UTC (08:00 og 17:00 norsk tid)
+    - cron: '0 6 * * *'
+    - cron: '0 15 * * *'
+  workflow_dispatch: # Muliggjør manuell kjøring
+
+jobs:
+  check-weather:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Sjekk vær og send varsel
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: python scripts/check_weather.py
