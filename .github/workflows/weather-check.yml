@@ -25,4 +25,4 @@ jobs:
       - name: Sjekk vær og send varsel
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: python scripts/check_weather.py
+        run: python weather_check.py
