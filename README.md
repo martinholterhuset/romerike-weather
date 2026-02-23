@@ -1,5 +1,4 @@
-# 🌧️ Romerike Værvarsel
-
+# 🌧️ Værprofeten
 GitHub Actions-tjeneste som sjekker vær for Romerike to ganger daglig og sender varsel til Slack.
 
 ## Datakilder
