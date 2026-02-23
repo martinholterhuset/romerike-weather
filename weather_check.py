@@ -20,8 +20,8 @@ LOCATION_NAME = "Romerike (Lillestrøm)"
 # Terskelverdier for varsler
 THRESHOLDS = {
     "precipitation_1h_mm": 5.0,      # mm per time - kraftig nedbør
-    "precipitation_6h_mm": 15.0,     # mm per 6 timer
-    "precipitation_12h_mm": 25.0,    # mm per 12 timer
+    "precipitation_6h_mm": 10.0,     # mm per 6 timer
+    "precipitation_12h_mm": 20.0,    # mm per 12 timer
     "temp_drop_6h": 8.0,             # °C temperaturfall på 6 timer
     "temp_rise_6h": 8.0,             # °C temperaturøkning på 6 timer
     "wind_speed_ms": 15.0,           # m/s (sterk vind ~liten storm)
