@@ -2,10 +2,8 @@ name: Romerike Værvarsel
 
 on:
   schedule:
-    # Kjører kl. 06:00 og 15:00 UTC (08:00 og 17:00 norsk tid)
-    - cron: '0 6 * * *'
-    - cron: '0 15 * * *'
-  workflow_dispatch: # Muliggjør manuell kjøring
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
 
 jobs:
   check-weather:
