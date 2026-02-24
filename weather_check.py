@@ -31,7 +31,26 @@ HEADERS = {
     "User-Agent": "RomerikeWeatherBot/1.0 github.com/din-org/romerike-weather"
 }
 
-# --- Met.no API ---
+EVENT_TYPE_NO = {
+    "wind": "Vind",
+    "rain": "Regn",
+    "snow": "Snø",
+    "ice": "Is",
+    "fog": "Tåke",
+    "thunder": "Tordenvær",
+    "avalanche": "Snøskred",
+    "flooding": "Flom",
+    "forestFire": "Skogbrann",
+    "storm": "Storm",
+    "polarLow": "Polart lavtrykk",
+}
+
+AWARENESS_LEVEL_NO = {
+    "green": "Grønt nivå",
+    "yellow": "Gult nivå",
+    "orange": "Oransje nivå",
+    "red": "Rødt nivå",
+}
 
 def fetch_met_forecast():
     """Henter varseldata fra Met.no Locationforecast 2.0"""
@@ -114,7 +133,7 @@ def analyze_forecast(data):
                 "severity": "høy" if precip_1h >= 10 else "moderat",
                 "title": f"Kraftig nedbør {precip_1h:.1f} mm/time",
                 "period": f"{time_str} – {(t + timedelta(hours=1)).strftime('%d.%m %H:%M')}",
-                "params": f"Nedbør: *{precip_1h:.1f} mm* per time (terskel: {THRESHOLDS['precipitation_1h_mm']} mm)",
+                "description": f"{precip_1h:.1f} mm nedbør meldt for denne timen.",
             })
 
         if precip_6h is not None and precip_6h >= THRESHOLDS["precipitation_6h_mm"]:
@@ -124,7 +143,7 @@ def analyze_forecast(data):
                 "severity": "høy" if precip_6h >= 30 else "moderat",
                 "title": f"Mye nedbør {precip_6h:.1f} mm over 6 timer",
                 "period": f"{time_str} – {(t + timedelta(hours=6)).strftime('%d.%m %H:%M')}",
-                "params": f"Nedbør: *{precip_6h:.1f} mm* over 6 timer (terskel: {THRESHOLDS['precipitation_6h_mm']} mm)",
+                "description": f"{precip_6h:.1f} mm nedbør meldt over 6 timer.",
             })
 
         if precip_12h is not None and precip_12h >= THRESHOLDS["precipitation_12h_mm"]:
@@ -134,7 +153,7 @@ def analyze_forecast(data):
                 "severity": "høy" if precip_12h >= 50 else "moderat",
                 "title": f"Mye nedbør {precip_12h:.1f} mm over 12 timer",
                 "period": f"{time_str} – {(t + timedelta(hours=12)).strftime('%d.%m %H:%M')}",
-                "params": f"Nedbør: *{precip_12h:.1f} mm* over 12 timer (terskel: {THRESHOLDS['precipitation_12h_mm']} mm)",
+                "description": f"{precip_12h:.1f} mm nedbør meldt over 12 timer.",
             })
 
         if wind is not None and wind >= THRESHOLDS["wind_speed_ms"]:
@@ -144,7 +163,7 @@ def analyze_forecast(data):
                 "severity": "høy" if wind >= 20 else "moderat",
                 "title": f"Sterk vind {wind:.1f} m/s",
                 "period": time_str,
-                "params": f"Vindstyrke: *{wind:.1f} m/s* (terskel: {THRESHOLDS['wind_speed_ms']} m/s)",
+                "description": f"Vindstyrke på {wind:.1f} m/s meldt.",
             })
 
     # Analyser temperatursvingninger over 6-timersperioder
@@ -163,7 +182,7 @@ def analyze_forecast(data):
                     "severity": "moderat",
                     "title": f"Kraftig temperaturfall {abs(diff_temp):.1f}°C på 6 timer",
                     "period": f"{t1.strftime('%d.%m %H:%M')} – {t2.strftime('%d.%m %H:%M')}",
-                    "params": f"Temperatur: *{temp1:.1f}°C → {temp2:.1f}°C* (fall: {abs(diff_temp):.1f}°C, terskel: {THRESHOLDS['temp_drop_6h']}°C)",
+                    "description": f"Temperaturen faller fra {temp1:.1f}°C til {temp2:.1f}°C på 6 timer.",
                 })
             elif diff_temp >= THRESHOLDS["temp_rise_6h"]:
                 alerts.append({
@@ -172,7 +191,7 @@ def analyze_forecast(data):
                     "severity": "moderat",
                     "title": f"Kraftig temperaturøkning {diff_temp:.1f}°C på 6 timer",
                     "period": f"{t1.strftime('%d.%m %H:%M')} – {t2.strftime('%d.%m %H:%M')}",
-                    "params": f"Temperatur: *{temp1:.1f}°C → {temp2:.1f}°C* (økning: {diff_temp:.1f}°C, terskel: {THRESHOLDS['temp_rise_6h']}°C)",
+                    "description": f"Temperaturen stiger fra {temp1:.1f}°C til {temp2:.1f}°C på 6 timer.",
                 })
 
     # Dedupliser (fjern svært like varsler)
@@ -187,13 +206,21 @@ def analyze_forecast(data):
     return unique_alerts
 
 def analyze_metalerts(data):
-    """Analyserer farevarsler fra MetAlerts."""
+    """Analyserer farevarsler fra MetAlerts. Dedupliserer på farevarselets ID."""
     if not data:
         return []
     alerts = []
+    seen_ids = set()
     features = data.get("features", [])
     for feature in features:
         props = feature.get("properties", {})
+
+        # Bruk unik ID for å unngå duplikater
+        alert_id = props.get("id") or props.get("identifier") or props.get("title", "")
+        if alert_id in seen_ids:
+            continue
+        seen_ids.add(alert_id)
+
         title = props.get("title", "Farevarsel")
         description = props.get("description", "")
         awareness_level = props.get("awarenessLevel", "")
@@ -214,17 +241,18 @@ def analyze_metalerts(data):
         severity = "høy" if "red" in awareness_level.lower() else "moderat"
         emoji = "🚨" if severity == "høy" else "⚠️"
 
+        event_type_no = EVENT_TYPE_NO.get(event_type, event_type)
+        awareness_level_no = AWARENESS_LEVEL_NO.get(awareness_level.lower(), awareness_level)
+        emoji = "🚨" if severity == "høy" else "⚠️"
+
         alerts.append({
-            "type": "farevarsel",
+            "type": event_type_no,
             "emoji": emoji,
             "severity": severity,
             "title": title,
             "period": period,
-            "params": (
-                f"Type: *{event_type}*\n"
-                f"Nivå: *{awareness_level}*\n"
-                f"Beskrivelse: {description[:200]}"
-            ),
+            "awareness_level": awareness_level_no,
+            "description": description,
         })
     return alerts
 
@@ -232,45 +260,40 @@ def analyze_metalerts(data):
 
 def build_slack_message(forecast_alerts, meta_alerts, frost_info=None):
     """Bygger Slack Block Kit-melding."""
-    all_alerts = meta_alerts + forecast_alerts
-    now_str = datetime.now(timezone(timedelta(hours=1))).strftime("%d.%m.%Y %H:%M")
-
-    if not all_alerts:
+    if not meta_alerts and not forecast_alerts:
         return None  # Ingen varsler = ingen melding
 
-    color_map = {"høy": "#D32F2F", "moderat": "#F57C00"}
-    blocks = [
-        {
-            "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": f"🌩️ Værvarsling – {LOCATION_NAME}",
-                "emoji": True,
-            },
-        },
-        {
-            "type": "context",
-            "elements": [
-                {
-                    "type": "mrkdwn",
-                    "text": f"Generert: *{now_str}* | Kilde: Met.no / Norsk klimaservicesenter",
-                }
-            ],
-        },
-        {"type": "divider"},
-    ]
+    blocks = []
 
-    for alert in all_alerts:
-        severity_label = "🔴 Høy alvorlighet" if alert["severity"] == "høy" else "🟠 Moderat alvorlighet"
+    # --- Farevarsler fra MetAlerts ---
+    for alert in meta_alerts:
         blocks.append({
             "type": "section",
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    f"{alert['emoji']} *{alert['title']}*\n"
-                    f"📅 Periode: {alert['period']}\n"
-                    f"{alert['params']}\n"
-                    f"_{severity_label}_"
+                    f"{alert['emoji']} *[Vær] {alert['title']}*\n"
+                    f"*Tidsperiode:* {alert['period']}\n"
+                    f"*Type:* {alert['type']}\n"
+                    f"*Nivå:* {alert['awareness_level']}\n"
+                    f"*Beskrivelse:* {alert['description'][:300]}"
+                ),
+            },
+        })
+        blocks.append({"type": "divider"})
+
+    # --- Varsler fra varseldata (nedbør, temperatur, vind) ---
+    for alert in forecast_alerts:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": (
+                    f"{alert['emoji']} *[Vær] {alert['title']}*\n"
+                    f"*Tidsperiode:* {alert['period']}\n"
+                    f"*Type:* {alert['type']}\n"
+                    f"*Nivå:* {alert['severity']}\n"
+                    f"*Beskrivelse:* {alert['description']}"
                 ),
             },
         })
@@ -284,16 +307,6 @@ def build_slack_message(forecast_alerts, meta_alerts, frost_info=None):
                 "text": f"📊 *Klimadata siste 24t (Gardermoen)*\n{frost_info}",
             },
         })
-
-    blocks.append({
-        "type": "context",
-        "elements": [
-            {
-                "type": "mrkdwn",
-                "text": "Terskelverdier: nedbør ≥5mm/t, ≥15mm/6t, ≥25mm/12t | Temperatursvingning ≥8°C/6t | Vind ≥15 m/s",
-            }
-        ],
-    })
 
     return {"blocks": blocks}
 
