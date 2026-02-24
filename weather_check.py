@@ -221,20 +221,29 @@ def analyze_metalerts(data):
             continue
         seen_ids.add(alert_id)
 
-        title = props.get("title", "Farevarsel")
         description = props.get("description", "")
         awareness_level = props.get("awarenessLevel", "")
         event_type = props.get("event", "")
         onset = props.get("onset", "")
         expires = props.get("expires", "")
+        area = props.get("area", "") or props.get("areaDesc", "")
 
-        # Formater periode
+        MÅNEDER = {
+            1: "januar", 2: "februar", 3: "mars", 4: "april",
+            5: "mai", 6: "juni", 7: "juli", 8: "august",
+            9: "september", 10: "oktober", 11: "november", 12: "desember"
+        }
+
+        def norsk_dato(dt):
+            return f"{dt.day}. {MÅNEDER[dt.month]} klokka {dt.strftime('%H.%M')}"
+
         period = ""
         if onset and expires:
             try:
-                t_start = datetime.fromisoformat(onset.replace("Z", "+00:00"))
-                t_end = datetime.fromisoformat(expires.replace("Z", "+00:00"))
-                period = f"{t_start.strftime('%d.%m %H:%M')} – {t_end.strftime('%d.%m %H:%M')}"
+                norsk_tz = timezone(timedelta(hours=1))
+                t_start = datetime.fromisoformat(onset.replace("Z", "+00:00")).astimezone(norsk_tz)
+                t_end = datetime.fromisoformat(expires.replace("Z", "+00:00")).astimezone(norsk_tz)
+                period = f"{norsk_dato(t_start)} til {norsk_dato(t_end)}"
             except Exception:
                 period = f"{onset} – {expires}"
 
@@ -243,15 +252,17 @@ def analyze_metalerts(data):
 
         event_type_no = EVENT_TYPE_NO.get(event_type, event_type)
         awareness_level_no = AWARENESS_LEVEL_NO.get(awareness_level.lower(), awareness_level)
-        emoji = "🚨" if severity == "høy" else "⚠️"
+        nivå_kort = awareness_level_no.replace(" nivå", "").capitalize()
+        title = f"{nivå_kort} farevarsel for {event_type_no.lower()}"
 
         alerts.append({
             "type": event_type_no,
             "emoji": emoji,
             "severity": severity,
             "title": title,
+            "area": area,
             "period": period,
-            "awareness_level": awareness_level_no,
+            "awareness_level": nivå_kort,
             "description": description,
         })
     return alerts
@@ -267,16 +278,17 @@ def build_slack_message(forecast_alerts, meta_alerts, frost_info=None):
 
     # --- Farevarsler fra MetAlerts ---
     for alert in meta_alerts:
+        area_line = f"*Område:* {alert['area']}\n" if alert.get('area') else ""
         blocks.append({
             "type": "section",
             "text": {
                 "type": "mrkdwn",
                 "text": (
                     f"{alert['emoji']} *[Vær] {alert['title']}*\n"
+                    f"{area_line}"
                     f"*Tidsperiode:* {alert['period']}\n"
-                    f"*Type:* {alert['type']}\n"
                     f"*Nivå:* {alert['awareness_level']}\n"
-                    f"*Beskrivelse:* {alert['description'][:300]}"
+                    f"*Beskrivelse:* {alert['description']}"
                 ),
             },
         })
