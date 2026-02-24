@@ -269,7 +269,7 @@ def analyze_metalerts(data):
         nivå_kort = awareness_level_no.replace(" nivå", "").capitalize()
         title = f"{nivå_kort} farevarsel for {event_type_no.lower()}"
 
-        web_url = props.get("web", "").strip("_")
+        web_url = "https://www.yr.no/nb/varsler/daglig-tabell"
 
         alerts.append({
             "type": event_type_no,
@@ -337,6 +337,17 @@ def build_slack_message(forecast_alerts, meta_alerts, frost_info=None):
                     f"*Beskrivelse:* {alert['description']}"
                 ),
             },
+        })
+        blocks.append({
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Sjekk kilden her", "emoji": True},
+                    "url": f"https://www.yr.no/nb/detaljer/graf/{LAT},{LON}",
+                    "style": "primary",
+                }
+            ],
         })
         blocks.append({"type": "divider"})
 
