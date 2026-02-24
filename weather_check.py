@@ -269,6 +269,8 @@ def analyze_metalerts(data):
         nivå_kort = awareness_level_no.replace(" nivå", "").capitalize()
         title = f"{nivå_kort} farevarsel for {event_type_no.lower()}"
 
+        web_url = props.get("web", "").strip("_")
+
         alerts.append({
             "type": event_type_no,
             "emoji": emoji,
@@ -278,6 +280,7 @@ def analyze_metalerts(data):
             "period": period,
             "awareness_level": nivå_kort,
             "description": description,
+            "url": web_url,
         })
     return alerts
 
@@ -298,7 +301,7 @@ def build_slack_message(forecast_alerts, meta_alerts, frost_info=None):
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    f"{alert['emoji']} *[Vær] {alert['title']}*\n"
+                    f"*[Vær] {alert['title']}*\n"
                     f"{area_line}"
                     f"*Tidsperiode:* {alert['period']}\n"
                     f"*Nivå:* {alert['awareness_level']}\n"
@@ -306,6 +309,18 @@ def build_slack_message(forecast_alerts, meta_alerts, frost_info=None):
                 ),
             },
         })
+        if alert.get("url"):
+            blocks.append({
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "Sjekk kilden her", "emoji": True},
+                        "url": alert["url"],
+                        "style": "primary",
+                    }
+                ],
+            })
         blocks.append({"type": "divider"})
 
     # --- Varsler fra varseldata (nedbør, temperatur, vind) ---
