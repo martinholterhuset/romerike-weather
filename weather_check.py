@@ -215,6 +215,10 @@ def analyze_metalerts(data):
     for feature in features:
         props = feature.get("properties", {})
 
+        # Debug: skriv ut alle felt for første varsel
+        import json
+        print("DEBUG MetAlerts properties:", json.dumps(props, ensure_ascii=False, indent=2))
+
         # Bruk unik ID for å unngå duplikater
         alert_id = props.get("id") or props.get("identifier") or props.get("title", "")
         if alert_id in seen_ids:
