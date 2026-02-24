@@ -215,23 +215,26 @@ def analyze_metalerts(data):
     for feature in features:
         props = feature.get("properties", {})
 
-        # Debug: skriv ut alle felt for første varsel
-        import json
-        print("DEBUG MetAlerts properties:", json.dumps(props, ensure_ascii=False, indent=2))
-
         # Bruk unik ID for å unngå duplikater
-        alert_id = props.get("id") or props.get("identifier") or props.get("title", "")
+        alert_id = props.get("id", "")
         if alert_id in seen_ids:
             continue
         seen_ids.add(alert_id)
 
         description = props.get("description", "")
-        awareness_level = props.get("awarenessLevel", "")
-        event_type = props.get("event", "")
-        onset = props.get("onset", "")
-        expires = props.get("expires", "")
-        area = props.get("area", "") or props.get("areaDesc", "")
+        # awareness_level format: "2; yellow; Moderate"
+        awareness_level_raw = props.get("awareness_level", "")
+        awareness_color = ""
+        for part in awareness_level_raw.split(";"):
+            part = part.strip().lower()
+            if part in ("yellow", "orange", "red", "green"):
+                awareness_color = part
+                break
 
+        event_type = props.get("event", "")
+        area = props.get("area", "")
+
+        # Hent tidsperiode fra title: "Is, gult nivå, Deler av Østlandet, 2026-02-25T12:00:00+00:00, 2026-02-25T22:59:00+00:00"
         MÅNEDER = {
             1: "januar", 2: "februar", 3: "mars", 4: "april",
             5: "mai", 6: "juni", 7: "juli", 8: "august",
@@ -242,20 +245,27 @@ def analyze_metalerts(data):
             return f"{dt.day}. {MÅNEDER[dt.month]} klokka {dt.strftime('%H.%M')}"
 
         period = ""
-        if onset and expires:
-            try:
+        try:
+            title_raw = props.get("title", "")
+            # Finn ISO-datoer i title
+            import re
+            dates = re.findall(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+\-]\d{2}:\d{2}", title_raw)
+            if len(dates) >= 2:
                 norsk_tz = timezone(timedelta(hours=1))
-                t_start = datetime.fromisoformat(onset.replace("Z", "+00:00")).astimezone(norsk_tz)
-                t_end = datetime.fromisoformat(expires.replace("Z", "+00:00")).astimezone(norsk_tz)
+                t_start = datetime.fromisoformat(dates[0]).astimezone(norsk_tz)
+                t_end = datetime.fromisoformat(dates[1]).astimezone(norsk_tz)
                 period = f"{norsk_dato(t_start)} til {norsk_dato(t_end)}"
-            except Exception:
-                period = f"{onset} – {expires}"
+            elif props.get("eventEndingTime"):
+                t_end = datetime.fromisoformat(props["eventEndingTime"].replace("Z", "+00:00")).astimezone(timezone(timedelta(hours=1)))
+                period = f"Til {norsk_dato(t_end)}"
+        except Exception:
+            pass
 
-        severity = "høy" if "red" in awareness_level.lower() else "moderat"
+        severity = "høy" if awareness_color == "red" else "moderat"
         emoji = "🚨" if severity == "høy" else "⚠️"
 
         event_type_no = EVENT_TYPE_NO.get(event_type, event_type)
-        awareness_level_no = AWARENESS_LEVEL_NO.get(awareness_level.lower(), awareness_level)
+        awareness_level_no = AWARENESS_LEVEL_NO.get(awareness_color, awareness_color)
         nivå_kort = awareness_level_no.replace(" nivå", "").capitalize()
         title = f"{nivå_kort} farevarsel for {event_type_no.lower()}"
 
