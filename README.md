@@ -1,4 +1,4 @@
-# 🌧️ Romerike Værvarsling
+# 🌧️ Værvarsling fra Romerike
 
 GitHub Actions-tjeneste som sjekker vær for Romerike hver tredje time og sender varsel til Slack.
 
