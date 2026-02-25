@@ -297,6 +297,7 @@ def build_slack_message(forecast_alerts, meta_alerts, frost_info=None):
     # --- Farevarsler fra MetAlerts ---
     for alert in meta_alerts:
         area_line = f"*Område:* {alert['area']}\n" if alert.get('area') else ""
+        update_line = f"\n⚠️ _Oppdatering: {alert['update_reason']}_" if alert.get('update_reason') else ""
         blocks.append({
             "type": "section",
             "text": {
@@ -307,6 +308,7 @@ def build_slack_message(forecast_alerts, meta_alerts, frost_info=None):
                     f"*Tidsperiode:* {alert['period']}\n"
                     f"*Nivå:* {alert['awareness_level']}\n"
                     f"*Beskrivelse:* {alert['description']}"
+                    f"{update_line}"
                 ),
             },
         })
@@ -316,7 +318,7 @@ def build_slack_message(forecast_alerts, meta_alerts, frost_info=None):
                 "elements": [
                     {
                         "type": "button",
-                        "text": {"type": "plain_text", "text": "Sjekk kilden her", "emoji": True},
+                        "text": {"type": "plain_text", "text": "Sjekk varselet på yr.no", "emoji": True},
                         "url": alert["url"],
                         "style": "primary",
                     }
@@ -344,7 +346,7 @@ def build_slack_message(forecast_alerts, meta_alerts, frost_info=None):
             "elements": [
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": "Sjekk kilden her", "emoji": True},
+                    "text": {"type": "plain_text", "text": "Sjekk varselet på yr.no", "emoji": True},
                     "url": f"https://www.yr.no/nb/detaljer/tabell/{LAT},{LON}",
                     "style": "primary",
                 }
@@ -409,32 +411,70 @@ def save_cache(cache):
     with open(CACHE_FILE, "w") as f:
         json.dump(cache, f, indent=2, ensure_ascii=False)
 
-def alert_key(alert):
-    """Lager en unik nøkkel for et varsel basert på ID, periode og nivå."""
+def alert_base_key(alert):
+    """Unik nøkkel basert kun på farevarselets ID – brukes til å finne tidligere versjon."""
+    return alert.get('id', '')
+
+def alert_full_key(alert):
+    """Unik nøkkel inkludert periode og nivå – endres hvis varselet oppdateres."""
     return f"{alert.get('id', '')}|{alert.get('period', '')}|{alert.get('awareness_level', '')}"
 
 def filter_new_alerts(meta_alerts, cache):
-    """Filtrer ut varsler som allerede er sendt og ikke har endret seg."""
+    """Filtrer ut varsler som allerede er sendt og ikke har endret seg.
+    Legger til en 'update_reason' hvis varselet er en oppdatering av et tidligere varsel."""
     new_alerts = []
     for alert in meta_alerts:
-        key = alert_key(alert)
-        if key not in cache:
-            new_alerts.append(alert)
-            print(f"Nytt varsel: {alert['title']}")
-        else:
+        full_key = alert_full_key(alert)
+        base_key = alert_base_key(alert)
+
+        if full_key in cache:
             print(f"Hopper over (allerede sendt): {alert['title']}")
+            continue
+
+        # Sjekk om dette er en oppdatering av et eksisterende varsel
+        prev = None
+        for cached_key, cached_data in cache.items():
+            if cached_key.startswith(base_key + "|"):
+                prev = cached_data
+                break
+
+        if prev:
+            # Finn hva som har endret seg
+            changes = []
+            if prev.get('period') and prev['period'] != alert.get('period'):
+                changes.append(f"Tidsperioden er endret fra _{prev['period']}_ til _{alert.get('period')}_")
+            if prev.get('awareness_level') and prev['awareness_level'] != alert.get('awareness_level'):
+                changes.append(f"Nivået er endret fra _{prev['awareness_level']}_ til _{alert.get('awareness_level')}_")
+            if changes:
+                alert['update_reason'] = " og ".join(changes)
+            else:
+                alert['update_reason'] = "Varselet er oppdatert"
+
+        new_alerts.append(alert)
+        print(f"{'Oppdatert' if prev else 'Nytt'} varsel: {alert['title']}")
+
     return new_alerts
 
 def update_cache(cache, sent_alerts):
     """Oppdater cache med sendte varsler, og fjern utgåtte."""
     now = datetime.now(timezone.utc)
-    # Legg til nye
+    base_key = None
     for alert in sent_alerts:
-        key = alert_key(alert)
-        cache[key] = now.isoformat()
+        base_key = alert_base_key(alert)
+        full_key = alert_full_key(alert)
+        # Fjern tidligere versjon av samme varsel
+        keys_to_remove = [k for k in cache if k.startswith(base_key + "|")]
+        for k in keys_to_remove:
+            del cache[k]
+        # Lagre ny versjon med periode og nivå for fremtidig sammenligning
+        cache[full_key] = {
+            "sent": now.isoformat(),
+            "period": alert.get("period", ""),
+            "awareness_level": alert.get("awareness_level", ""),
+        }
     # Rydd opp gamle (eldre enn 7 dager)
     cutoff = (now - timedelta(days=7)).isoformat()
-    cache = {k: v for k, v in cache.items() if v > cutoff}
+    cache = {k: v for k, v in cache.items() if isinstance(v, dict) and v.get("sent", "") > cutoff}
     return cache
 
 # --- Hovedprogram ---
