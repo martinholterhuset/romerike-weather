@@ -272,6 +272,7 @@ def analyze_metalerts(data):
         web_url = "https://www.yr.no/farevarsel"
 
         alerts.append({
+            "id": alert_id,
             "type": event_type_no,
             "emoji": emoji,
             "severity": severity,
@@ -389,6 +390,53 @@ def summarize_frost(data):
         parts.append(f"Total nedbør: *{sum(precips):.1f} mm*")
     return " | ".join(parts) if parts else None
 
+# --- Cache for å unngå duplikatvarsler ---
+
+CACHE_FILE = "sent_alerts_cache.json"
+
+def load_cache():
+    """Laster inn tidligere sendte varsler."""
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def save_cache(cache):
+    """Lagrer sendte varsler til fil."""
+    with open(CACHE_FILE, "w") as f:
+        json.dump(cache, f, indent=2, ensure_ascii=False)
+
+def alert_key(alert):
+    """Lager en unik nøkkel for et varsel basert på ID, periode og nivå."""
+    return f"{alert.get('id', '')}|{alert.get('period', '')}|{alert.get('awareness_level', '')}"
+
+def filter_new_alerts(meta_alerts, cache):
+    """Filtrer ut varsler som allerede er sendt og ikke har endret seg."""
+    new_alerts = []
+    for alert in meta_alerts:
+        key = alert_key(alert)
+        if key not in cache:
+            new_alerts.append(alert)
+            print(f"Nytt varsel: {alert['title']}")
+        else:
+            print(f"Hopper over (allerede sendt): {alert['title']}")
+    return new_alerts
+
+def update_cache(cache, sent_alerts):
+    """Oppdater cache med sendte varsler, og fjern utgåtte."""
+    now = datetime.now(timezone.utc)
+    # Legg til nye
+    for alert in sent_alerts:
+        key = alert_key(alert)
+        cache[key] = now.isoformat()
+    # Rydd opp gamle (eldre enn 7 dager)
+    cutoff = (now - timedelta(days=7)).isoformat()
+    cache = {k: v for k, v in cache.items() if v > cutoff}
+    return cache
+
 # --- Hovedprogram ---
 
 def main():
@@ -406,12 +454,18 @@ def main():
 
     print(f"Varsler funnet: {len(forecast_alerts)} fra varsel, {len(meta_alerts)} farevarsler")
 
+    # Filtrer farevarsler – send kun nye eller endrede
+    cache = load_cache()
+    new_meta_alerts = filter_new_alerts(meta_alerts, cache)
+
     # Bygg og send Slack-melding
-    payload = build_slack_message(forecast_alerts, meta_alerts, frost_info)
+    payload = build_slack_message(forecast_alerts, new_meta_alerts, frost_info)
     if payload:
         send_slack_message(payload)
+        cache = update_cache(cache, new_meta_alerts)
+        save_cache(cache)
     else:
-        print("Ingen varsler å sende – forholdene er normale.")
+        print("Ingen nye varsler å sende.")
 
 if __name__ == "__main__":
     main()
