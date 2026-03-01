@@ -1,3 +1,7 @@
 {
-  "2.49.0.1.578.0.20260225090657.088|25. februar klokka 13.00 til 26. februar klokka 12.00|Gult": "2026-02-25T09:54:17.171815+00:00"
+  "2.49.0.1.578.0.20260301115145.039|2. mars klokka 07.00 til 2. mars klokka 19.01|Gult": {
+    "sent": "2026-03-01T15:22:32.732013+00:00",
+    "period": "2. mars klokka 07.00 til 2. mars klokka 19.01",
+    "awareness_level": "Gult"
+  }
 }
