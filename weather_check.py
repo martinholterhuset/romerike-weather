@@ -22,8 +22,8 @@ THRESHOLDS = {
     "precipitation_1h_mm": 5.0,      # mm per time - kraftig nedbør
     "precipitation_6h_mm": 15.0,     # mm per 6 timer
     "precipitation_12h_mm": 25.0,    # mm per 12 timer
-    "temp_drop_6h": 10.0,             # °C temperaturfall på 6 timer
-    "temp_rise_6h": 10.0,             # °C temperaturøkning på 6 timer
+    "temp_drop_6h": 10.0,            # °C temperaturfall på 6 timer
+    "temp_rise_6h": 10.0,            # °C temperaturøkning på 6 timer
     "wind_speed_ms": 15.0,           # m/s (sterk vind ~liten storm)
 }
 
@@ -183,6 +183,7 @@ def analyze_forecast(data):
                     "title": f"Kraftig temperaturfall {abs(diff_temp):.1f}°C på 6 timer",
                     "period": f"{t1.strftime('%d.%m %H:%M')} – {t2.strftime('%d.%m %H:%M')}",
                     "description": f"Temperaturen faller fra {temp1:.1f}°C til {temp2:.1f}°C på 6 timer.",
+                    "temp_diff": abs(diff_temp),
                 })
             elif diff_temp >= THRESHOLDS["temp_rise_6h"]:
                 alerts.append({
@@ -192,6 +193,7 @@ def analyze_forecast(data):
                     "title": f"Kraftig temperaturøkning {diff_temp:.1f}°C på 6 timer",
                     "period": f"{t1.strftime('%d.%m %H:%M')} – {t2.strftime('%d.%m %H:%M')}",
                     "description": f"Temperaturen stiger fra {temp1:.1f}°C til {temp2:.1f}°C på 6 timer.",
+                    "temp_diff": diff_temp,
                 })
 
     # Dedupliser (fjern svært like varsler)
@@ -455,27 +457,64 @@ def filter_new_alerts(meta_alerts, cache):
 
     return new_alerts
 
-def update_cache(cache, sent_alerts):
+def update_cache(cache, sent_meta_alerts, sent_forecast_alerts):
     """Oppdater cache med sendte varsler, og fjern utgåtte."""
     now = datetime.now(timezone.utc)
-    base_key = None
-    for alert in sent_alerts:
+
+    # Farevarsler
+    for alert in sent_meta_alerts:
         base_key = alert_base_key(alert)
         full_key = alert_full_key(alert)
-        # Fjern tidligere versjon av samme varsel
         keys_to_remove = [k for k in cache if k.startswith(base_key + "|")]
         for k in keys_to_remove:
             del cache[k]
-        # Lagre ny versjon med periode og nivå for fremtidig sammenligning
         cache[full_key] = {
             "sent": now.isoformat(),
             "period": alert.get("period", ""),
             "awareness_level": alert.get("awareness_level", ""),
         }
+
+    # Temperaturvarsler
+    for alert in sent_forecast_alerts:
+        if alert.get("type") == "temperatur":
+            cache_key = f"temp|{now.strftime('%Y-%m-%d')}"
+            cache[cache_key] = {
+                "sent": now.isoformat(),
+                "diff": alert.get("temp_diff", 0),
+            }
+
     # Rydd opp gamle (eldre enn 7 dager)
     cutoff = (now - timedelta(days=7)).isoformat()
     cache = {k: v for k, v in cache.items() if isinstance(v, dict) and v.get("sent", "") > cutoff}
     return cache
+
+def filter_forecast_alerts(forecast_alerts, cache):
+    """Filtrer temperaturvarsler – send kun ett per døgn med mindre svingningen
+    er minst 3°C større enn forrige varsel samme dag."""
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    temp_cache_key = f"temp|{today}"
+    prev_temp = cache.get(temp_cache_key)
+
+    filtered = []
+    for alert in forecast_alerts:
+        if alert.get("type") != "temperatur":
+            filtered.append(alert)
+            continue
+
+        diff = alert.get("temp_diff", 0)
+
+        if prev_temp is None:
+            # Ingen temperaturvarsel sendt i dag – send dette
+            filtered.append(alert)
+            print(f"Nytt temperaturvarsel: {alert['title']}")
+        elif diff >= prev_temp.get("diff", 0) + 3:
+            # Vesentlig større svingning enn forrige – send på nytt
+            filtered.append(alert)
+            print(f"Oppdatert temperaturvarsel (større svingning): {alert['title']}")
+        else:
+            print(f"Hopper over temperaturvarsel (ikke vesentlig endring): {alert['title']}")
+
+    return filtered
 
 # --- Hovedprogram ---
 
@@ -494,15 +533,16 @@ def main():
 
     print(f"Varsler funnet: {len(forecast_alerts)} fra varsel, {len(meta_alerts)} farevarsler")
 
-    # Filtrer farevarsler – send kun nye eller endrede
+    # Filtrer varsler
     cache = load_cache()
     new_meta_alerts = filter_new_alerts(meta_alerts, cache)
+    new_forecast_alerts = filter_forecast_alerts(forecast_alerts, cache)
 
     # Bygg og send Slack-melding
-    payload = build_slack_message(forecast_alerts, new_meta_alerts, frost_info)
+    payload = build_slack_message(new_forecast_alerts, new_meta_alerts, frost_info)
     if payload:
         send_slack_message(payload)
-        cache = update_cache(cache, new_meta_alerts)
+        cache = update_cache(cache, new_meta_alerts, new_forecast_alerts)
         save_cache(cache)
     else:
         print("Ingen nye varsler å sende.")
