@@ -1,12 +1,12 @@
 {
-  "2.49.0.1.578.0.20260424175510.045|25. april klokka 13.00 til 25. april klokka 19.00|Gult": {
-    "sent": "2026-04-25T06:19:14.945152+00:00",
-    "period": "25. april klokka 13.00 til 25. april klokka 19.00",
-    "awareness_level": "Gult"
-  },
   "2.49.0.1.578.0.20260426101638.003|25. april klokka 09.00 til 3. mai klokka 19.00|Gult": {
     "sent": "2026-04-26T11:30:34.873315+00:00",
     "period": "25. april klokka 09.00 til 3. mai klokka 19.00",
+    "awareness_level": "Gult"
+  },
+  "2.49.0.1.578.0.20260502074832.075|25. april klokka 09.00 til 3. mai klokka 00.00|Gult": {
+    "sent": "2026-05-02T11:35:11.247929+00:00",
+    "period": "25. april klokka 09.00 til 3. mai klokka 00.00",
     "awareness_level": "Gult"
   }
 }
