@@ -20,10 +20,10 @@ LOCATION_NAME = "Romerike (Lillestrøm)"
 # Terskelverdier for varsler
 THRESHOLDS = {
     "precipitation_1h_mm": 5.0,      # mm per time - kraftig nedbør
-    "precipitation_6h_mm": 20.0,     # mm per 6 timer
+    "precipitation_6h_mm": 15.0,     # mm per 6 timer
     "precipitation_12h_mm": 25.0,    # mm per 12 timer
-    "temp_drop_6h": 15.0,            # °C temperaturfall på 6 timer
-    "temp_rise_6h": 15.0,            # °C temperaturøkning på 6 timer
+    "temp_drop_6h": 10.0,            # °C temperaturfall på 6 timer
+    "temp_rise_6h": 10.0,            # °C temperaturøkning på 6 timer
     "wind_speed_ms": 15.0,           # m/s (sterk vind ~liten storm)
 }
 
@@ -474,45 +474,61 @@ def update_cache(cache, sent_meta_alerts, sent_forecast_alerts):
             "awareness_level": alert.get("awareness_level", ""),
         }
 
-    # Temperaturvarsler
+    # Forecast-varsler (nedbør, vind, temperatur)
+    today = now.strftime('%Y-%m-%d')
     for alert in sent_forecast_alerts:
-        if alert.get("type") == "temperatur":
-            cache_key = f"temp|{now.strftime('%Y-%m-%d')}"
-            cache[cache_key] = {
-                "sent": now.isoformat(),
-                "diff": alert.get("temp_diff", 0),
-            }
+        cache_key = forecast_cache_key(alert, today)
+        cache[cache_key] = {
+            "sent": now.isoformat(),
+            "diff": alert.get("temp_diff", 0),
+        }
 
     # Rydd opp gamle (eldre enn 7 dager)
     cutoff = (now - timedelta(days=7)).isoformat()
     cache = {k: v for k, v in cache.items() if isinstance(v, dict) and v.get("sent", "") > cutoff}
     return cache
 
+def forecast_cache_key(alert, today):
+    """Lager cache-nøkkel for forecast-varsler basert på type og dag."""
+    alert_type = alert.get("type", "ukjent")
+    if alert_type == "temperatur":
+        return f"temp|{today}"
+    elif alert_type == "nedbør":
+        # Gruppér på type + tidsperiode (unngår duplikater innen samme periode)
+        return f"nedbør|{today}|{alert.get('period', '')}"
+    elif alert_type == "vind":
+        return f"vind|{today}|{alert.get('period', '')}"
+    return f"{alert_type}|{today}|{alert.get('period', '')}"
+
 def filter_forecast_alerts(forecast_alerts, cache):
-    """Filtrer temperaturvarsler – send kun ett per døgn med mindre svingningen
-    er minst 3°C større enn forrige varsel samme dag."""
+    """Filtrer forecast-varsler:
+    - Nedbør/vind: send kun én gang per tidsperiode per dag
+    - Temperatur: send kun ett per døgn med mindre svingningen er minst 3°C større
+    """
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    temp_cache_key = f"temp|{today}"
-    prev_temp = cache.get(temp_cache_key)
-
     filtered = []
+
     for alert in forecast_alerts:
-        if alert.get("type") != "temperatur":
-            filtered.append(alert)
-            continue
+        alert_type = alert.get("type")
+        cache_key = forecast_cache_key(alert, today)
 
-        diff = alert.get("temp_diff", 0)
-
-        if prev_temp is None:
-            # Ingen temperaturvarsel sendt i dag – send dette
-            filtered.append(alert)
-            print(f"Nytt temperaturvarsel: {alert['title']}")
-        elif diff >= prev_temp.get("diff", 0) + 3:
-            # Vesentlig større svingning enn forrige – send på nytt
-            filtered.append(alert)
-            print(f"Oppdatert temperaturvarsel (større svingning): {alert['title']}")
+        if alert_type == "temperatur":
+            prev = cache.get(cache_key)
+            diff = alert.get("temp_diff", 0)
+            if prev is None:
+                filtered.append(alert)
+                print(f"Nytt temperaturvarsel: {alert['title']}")
+            elif diff >= prev.get("diff", 0) + 3:
+                filtered.append(alert)
+                print(f"Oppdatert temperaturvarsel (større svingning): {alert['title']}")
+            else:
+                print(f"Hopper over temperaturvarsel (ikke vesentlig endring): {alert['title']}")
         else:
-            print(f"Hopper over temperaturvarsel (ikke vesentlig endring): {alert['title']}")
+            if cache_key not in cache:
+                filtered.append(alert)
+                print(f"Nytt varsel: {alert['title']}")
+            else:
+                print(f"Hopper over (allerede sendt i dag): {alert['title']}")
 
     return filtered
 
