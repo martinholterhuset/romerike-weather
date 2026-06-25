@@ -1,21 +1,16 @@
 {
-  "nedbør|2026-06-03|03.06 16:00 – 03.06 17:00": {
-    "sent": "2026-06-03T15:22:57.802381+00:00",
+  "2.49.0.1.578.0.20260625070114.050|26. juni klokka 23.00 til 27. juni klokka 07.00|Gult": {
+    "sent": "2026-06-25T08:20:06.459928+00:00",
+    "period": "26. juni klokka 23.00 til 27. juni klokka 07.00",
+    "awareness_level": "Gult"
+  },
+  "2.49.0.1.578.0.20260625072934.085|25. juni klokka 13.00 til 28. juni klokka 19.00|Gult": {
+    "sent": "2026-06-25T08:20:06.459928+00:00",
+    "period": "25. juni klokka 13.00 til 28. juni klokka 19.00",
+    "awareness_level": "Gult"
+  },
+  "nedbør|2026-06-25|27.06 00:00 – 27.06 01:00": {
+    "sent": "2026-06-25T08:20:06.459928+00:00",
     "diff": 0
-  },
-  "2.49.0.1.578.0.20260604123257.068|4. juni klokka 13.50 til 4. juni klokka 19.00|Gult": {
-    "sent": "2026-06-04T13:50:53.287116+00:00",
-    "period": "4. juni klokka 13.50 til 4. juni klokka 19.00",
-    "awareness_level": "Gult"
-  },
-  "2.49.0.1.578.0.20260609073947.006|10. juni klokka 13.00 til 10. juni klokka 18.00|Gult": {
-    "sent": "2026-06-09T08:28:51.482665+00:00",
-    "period": "10. juni klokka 13.00 til 10. juni klokka 18.00",
-    "awareness_level": "Gult"
-  },
-  "2.49.0.1.578.0.20260610080652.055|10. juni klokka 14.00 til 10. juni klokka 22.00|Gult": {
-    "sent": "2026-06-10T08:46:08.013532+00:00",
-    "period": "10. juni klokka 14.00 til 10. juni klokka 22.00",
-    "awareness_level": "Gult"
   }
 }
