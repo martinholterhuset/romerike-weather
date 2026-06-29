@@ -17,5 +17,10 @@
     "sent": "2026-06-26T13:01:19.758603+00:00",
     "period": "25. juni klokka 13.00 til 30. juni klokka 19.00",
     "awareness_level": "Gult"
+  },
+  "2.49.0.1.578.0.20260629064618.047|25. juni klokka 13.00 til 1. juli klokka 21.00|Gult": {
+    "sent": "2026-06-29T09:24:10.573711+00:00",
+    "period": "25. juni klokka 13.00 til 1. juli klokka 21.00",
+    "awareness_level": "Gult"
   }
 }
