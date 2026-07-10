@@ -14,5 +14,10 @@
   "temp|2026-07-10": {
     "sent": "2026-07-10T08:18:41.693958+00:00",
     "diff": 10.2
+  },
+  "2.49.0.1.578.0.20260710102320.042|11. juli klokka 15.00 til 11. juli klokka 19.00|Gult": {
+    "sent": "2026-07-10T13:01:35.930396+00:00",
+    "period": "11. juli klokka 15.00 til 11. juli klokka 19.00",
+    "awareness_level": "Gult"
   }
 }
