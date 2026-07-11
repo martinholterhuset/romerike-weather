@@ -19,5 +19,18 @@
     "sent": "2026-07-10T13:01:35.930396+00:00",
     "period": "11. juli klokka 15.00 til 11. juli klokka 19.00",
     "awareness_level": "Gult"
+  },
+  "2.49.0.1.578.0.20260711073921.012|11. juli klokka 15.00 til 11. juli klokka 19.00|Gult": {
+    "sent": "2026-07-11T11:41:08.921054+00:00",
+    "period": "11. juli klokka 15.00 til 11. juli klokka 19.00",
+    "awareness_level": "Gult"
+  },
+  "nedbør|2026-07-11|11.07 16:00 – 11.07 17:00": {
+    "sent": "2026-07-11T11:41:08.921054+00:00",
+    "diff": 0
+  },
+  "temp|2026-07-11": {
+    "sent": "2026-07-11T11:41:08.921054+00:00",
+    "diff": 10.0
   }
 }
