@@ -1,9 +1,4 @@
 {
-  "2.49.0.1.578.0.20260813103134.029|5. august klokka 09.30 til 17. august klokka 22.59|Gult": {
-    "sent": "2026-08-13T11:36:22.549440+00:00",
-    "period": "5. august klokka 09.30 til 17. august klokka 22.59",
-    "awareness_level": "Gult"
-  },
   "2.49.0.1.578.0.20260814094539.080|15. august klokka 16.00 til 15. august klokka 23.00|Gult": {
     "sent": "2026-08-15T11:08:04.432135+00:00",
     "period": "15. august klokka 16.00 til 15. august klokka 23.00",
@@ -25,5 +20,10 @@
   "temp|2026-08-20": {
     "sent": "2026-08-20T05:25:17.629995+00:00",
     "diff": 10.500000000000002
+  },
+  "2.49.0.1.578.0.20260821060033.037|5. august klokka 09.30 til 25. august klokka 22.59|Gult": {
+    "sent": "2026-08-21T11:14:33.299026+00:00",
+    "period": "5. august klokka 09.30 til 25. august klokka 22.59",
+    "awareness_level": "Gult"
   }
 }
