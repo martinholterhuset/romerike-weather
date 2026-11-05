@@ -74,7 +74,7 @@ def met_get(url, attempts=3, delay=20):
 
 def fetch_met_forecast():
     """Henter varseldata fra Met.no Locationforecast 2.0"""
-    url = f"https://api.met.no/weatherapi/locationforecast/2.0/complete?lat={LAT}&lon={LON}"
+    url = f"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={LAT}&lon={LON}"
     resp = met_get(url)
     resp.raise_for_status()
     return resp.json()
