@@ -6,6 +6,7 @@ og sender varsler til Slack ved kritiske forhold.
 
 import os
 import json
+import time
 import requests
 from datetime import datetime, timezone, timedelta
 
@@ -28,7 +29,7 @@ THRESHOLDS = {
 }
 
 HEADERS = {
-    "User-Agent": "RomerikeWeatherBot/1.0 github.com/din-org/romerike-weather"
+    "User-Agent": "RomerikeWeatherBot/1.0 github.com/martinholterhuset/romerike-weather"
 }
 
 EVENT_TYPE_NO = {
@@ -52,17 +53,36 @@ AWARENESS_LEVEL_NO = {
     "red": "Rødt nivå",
 }
 
+def met_get(url, attempts=3, delay=20):
+    """GET mot api.met.no med nye forsøk ved midlertidige feil (429/5xx, nettverk)."""
+    for attempt in range(1, attempts + 1):
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=30)
+            if resp.status_code == 200:
+                resp.json()  # avkuttet/ugyldig JSON -> ValueError -> nytt forsøk
+                return resp
+            if resp.status_code not in (429, 500, 502, 503, 504):
+                return resp
+            print(f"Met.no svarte {resp.status_code} (forsøk {attempt}/{attempts})")
+        except (requests.ConnectionError, requests.Timeout, ValueError) as e:
+            print(f"Feil mot Met.no (forsøk {attempt}/{attempts}): {e}")
+            if attempt == attempts:
+                raise
+        if attempt < attempts:
+            time.sleep(delay * attempt)
+    return resp
+
 def fetch_met_forecast():
     """Henter varseldata fra Met.no Locationforecast 2.0"""
     url = f"https://api.met.no/weatherapi/locationforecast/2.0/complete?lat={LAT}&lon={LON}"
-    resp = requests.get(url, headers=HEADERS, timeout=30)
+    resp = met_get(url)
     resp.raise_for_status()
     return resp.json()
 
 def fetch_met_alerts():
     """Henter farevarsler fra Met.no MetAlerts"""
     url = f"https://api.met.no/weatherapi/metalerts/2.0/current.json?lat={LAT}&lon={LON}"
-    resp = requests.get(url, headers=HEADERS, timeout=30)
+    resp = met_get(url)
     if resp.status_code == 200:
         return resp.json()
     return None
